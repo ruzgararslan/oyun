@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TÜBİTAK 4006 Bulmaca</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #1a1a2e;
+        color: white;
+        margin: 0;
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+    }
+    .container {
+        width: 100%;
+        max-width: 800px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    /* BEYAZ LOGO ALANI - LOGOLAR DEV GİBİ */
+    .logo-box {
+        background: white;
+        padding: 25px;
+        border-radius: 20px;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .logo-box img { object-fit: contain; }
+    .logo-tubitak { height: 80px; }
+    .logo-4006 { height: 160px; } /* ORTADAKİ LOGO DEV YAPILDI */
+    .logo-okul { height: 150px; }   /* ÇAMLIK LOGOSU DEV YAPILDI */
+
+    /* QR KOD ARTIK BURADA - GÖRÜNMEME ŞANSI YOK */
+    .main-content {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    #qr-section {
+        background: white;
+        padding: 15px;
+        border-radius: 15px;
+        text-align: center;
+        width: 150px;
+        height: fit-content;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    #qr-section img { width: 130px; height: 130px; display: block; margin: 0 auto; }
+    #qr-section p { color: black; font-weight: bold; margin: 10px 0 0 0; font-size: 13px; }
+
+    .card {
+        background: #16213e;
+        padding: 30px;
+        border-radius: 20px;
+        flex: 1;
+        min-width: 300px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        border: 2px solid #e94560;
+    }
+    .header { background: #e94560; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+    input { width: 90%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 16px; }
+    button { background: #00d2ff; color: #1a1a2e; padding: 12px 25px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+    
+    #letters { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 15px; }
+    .btn-l { width: 40px; height: 40px; background: #0f3460; color: white; border: 1px solid #00d2ff; cursor: pointer; font-weight: bold; }
+    .correct { background: #00c853 !important; }
+    .wrong { background: #ff4b2b !important; }
+    .word-box { font-size: 28px; letter-spacing: 4px; margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; }
+    .hidden { display: none !important; }
+</style>
+</head>
+<body onload="generateQR()">
+
+<div class="container">
+    <div class="logo-box">
+        <img src="tübitak .jpeg" class="logo-tubitak">
+        <img src="tübitak2.jpeg" class="logo-4006">
+        <img src="camlik okul.jpeg" class="logo-okul">
+    </div>
+
+    <div class="main-content">
+        <div id="qr-section">
+            <img id="qr-img" src="" alt="QR Kod">
+            <p>TELEFONLA OYNA</p>
+        </div>
+
+        <div id="auth-box" class="card">
+            <div class="header"><h1>GİRİŞ YAP</h1></div>
+            <input type="text" id="user" placeholder="Kullanıcı Adı">
+            <input type="password" id="pass" placeholder="Şifre">
+            <br><br>
+            <button onclick="login()">OYUNA BAŞLA</button>
+        </div>
+
+        <div id="game-box" class="card hidden">
+            <div id="meaning" style="color: #f9ed69; font-size: 18px; margin-bottom: 10px;"></div>
+            <div id="word" class="word-box"></div>
+            <div id="letters"></div>
+            <hr>
+            <div style="display:flex; justify-content: space-around;">
+                <span>Puan: <b id="score">0</b></span>
+                <span>Can: <b id="lives">3</b></span>
+                <span>Süre: <b id="time">60</b></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // QR Kodu Oluşturma Fonksiyonu
+    function generateQR() {
+        var url = window.location.href;
+        document.getElementById("qr-img").src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(url);
+    }
+
+    let users = JSON.parse(localStorage.getItem("dataUsers")) || {};
+    let currentU = "";
+    let item, guessed = [], score = 0, lives = 3, timer, timeLeft = 60;
+
+    const dataSet = [
+        // DEYİMLER (30)
+        {w:"ATEŞ PAHALISI", m:"DEYİM: Çok pahalı."}, {w:"DİLİNDE TÜY BİTMEK", m:"DEYİM: Anlatmaktan yorulmak."},
+        {w:"GÖZDEN DÜŞMEK", m:"DEYİM: Değerini yitirmek."}, {w:"İPE UN SERMEK", m:"DEYİM: Bahane uydurmak."},
+        {w:"KULAK MISAFIRI OLMAK", m:"DEYİM: İstemeden dinlemek."}, {w:"ETEKLERI ZIL ÇALMAK", m:"DEYİM: Çok sevinmek."},
+        {w:"BURUN KIVIRMAK", m:"DEYİM: Beğenmemek."}, {w:"GÖZE GELMEK", m:"DEYİM: Nazara uğramak."},
+        {w:"ÇANTADA KEKLIK", m:"DEYİM: Garanti görülen."}, {w:"SABRI TAŞMAK", m:"DEYİM: Dayanamamak."},
+        {w:"EL ÜSTÜNDE TUTMAK", m:"DEYİM: Çok saygı duymak."}, {w:"BALTAYI TAŞA VURMAK", m:"DEYİM: Pot kırmak."},
+        {w:"İÇİ KAN AĞLAMAK", m:"DEYİM: Gizlice çok üzülmek."}, {w:"POT KIRMAK", m:"DEYİM: Yanlış konuşmak."},
+        {w:"YÜZÜNDEN DÜŞEN BIN PARÇA", m:"DEYİM: Çok asık suratlı."}, {w:"KULAK KABARTMAK", m:"DEYİM: Gizlice dinlemek."},
+        {w:"HAPI YUTMAK", m:"DEYİM: Kötü duruma düşmek."}, {w:"GÖZÜNDEN KAÇMAK", m:"DEYİM: Fark etmemek."},
+        {w:"AYIKLA PIRINCIN TAŞINI", m:"DEYİM: İşler karıştı."}, {w:"CAN ATMAK", m:"DEYİM: Çok arzulamak."},
+        {w:"EL AÇMAK", m:"DEYİM: Yardım istemek."}, {w:"DARA DÜŞMEK", m:"DEYİM: Sıkıntıya girmek."},
+        {w:"BOYUN EĞMEK", m:"DEYİM: Kabullenmek."}, {w:"AĞZI KULAKLARINA VARMAK", m:"DEYİM: Çok mutlu olmak."},
+        {w:"BURNUNDA TÜTMEK", m:"DEYİM: Çok özlemek."}, {w:"GÖZÜ PEK", m:"DEYİM: Korkusuz."},
+        {w:"DİLİ VARMAMAK", m:"DEYİM: Söyleyememek."}, {w:"PABUCU DAMA ATILMAK", m:"DEYİM: İlgi görmemek."},
+        {w:"İÇİNE KURT DÜŞMEK", m:"DEYİM: Şüphelenmek."}, {w:"CANINI DİŞİNE TAKMAK", m:"DEYİM: Gayretle çalışmak."},
+        // ATASÖZLERİ (30)
+        {w:"GÜLME KOMŞUNA GELİR BAŞINA", m:"ATASÖZÜ: Alay etme."}, {w:"DAMLAYA DAMLAYA GÖL OLUR", m:"ATASÖZÜ: Birikim."},
+        {w:"AYAĞINI YORGANINA GÖRE UZAT", m:"ATASÖZÜ: Dengeli harca."}, {w:"TATLI DİL YILANI DELİĞİNDEN ÇIKARIR", m:"ATASÖZÜ: Güzel sözün gücü."},
+        {w:"SAKLA SAMANI GELİR ZAMANI", m:"ATASÖZÜ: Gereksiz şeyi atma."}, {w:"ÜZÜM ÜZÜME BAKA BAKA KARARIR", m:"ATASÖZÜ: Birbirinden etkilenme."},
+        {w:"BIR ELIN NESI VAR IKI ELIN SESI VAR", m:"ATASÖZÜ: Birlik."}, {w:"ASLAN YATTIĞI YERDEN BELLİ OLUR", m:"ATASÖZÜ: Düzenlilik."},
+        {w:"BAKARSAN BAĞ BAKMAZSAN DAĞ OLUR", m:"ATASÖZÜ: Bakım şarttır."}, {w:"AĞAÇ YAŞKEN EĞİLİR", m:"ATASÖZÜ: Erken eğitim."},
+        {w:"DENIZE DÜŞEN YILANA SARILIR", m:"ATASÖZÜ: Çaresizlik."}, {w:"AKIL AKILDAN ÜSTÜNDÜR", m:"ATASÖZÜ: Danışmak iyidir."},
+        {w:"GÜNEŞ GİRMEYEN EVE DOKTOR GİRER", m:"ATASÖZÜ: Sağlık için güneş."}, {w:"KESKİN SİRKE KÜPÜNE ZARAR", m:"ATASÖZÜ: Öfke zarardır."},
+        {w:"KOMŞU KOMŞUNUN KÜLÜNE MUHTAÇTIR", m:"ATASÖZÜ: Yardımlaşma."}, {w:"ERKEN KALKAN YOL ALIR", m:"ATASÖZÜ: Çalışkanlık."},
+        {w:"NE EKERSEN ONU BİÇERSİN", m:"ATASÖZÜ: Ne yaparsan o döner."}, {w:"TAŞIMA SUYLA DEĞİRMEN DÖNMEZ", m:"ATASÖZÜ: Yetersiz kaynak."},
+        {w:"HER KOYUN KENDI BACAĞINDAN ASILIR", m:"ATASÖZÜ: Bireysel sorumluluk."}, {w:"KÖRLE YATAN ŞAŞI KALKAR", m:"ATASÖZÜ: Kötü arkadaş."},
+        {w:"SÜTTEN AĞZI YANAN YOĞURDU ÜFLEYEREK YER", m:"ATASÖZÜ: Ders almak."}, {w:"DAVULUN SESİ UZAKTAN HOŞ GELİR", m:"ATASÖZÜ: Dışarıdan kolay sanmak."},
+        {w:"BALIK BAŞTAN KOKAR", m:"ATASÖZÜ: Yönetim bozukluğu."}, {w:"MEYVE VEREN AĞAÇ TAŞLANIR", m:"ATASÖZÜ: Başarı kıskanılır."},
+        {w:"ÖFKE ILE KALKAN ZARARLA OTURUR", m:"ATASÖZÜ: Sakinlik."}, {w:"VAKİT NAKİTTİR", m:"ATASÖZÜ: Zaman değerlidir."},
+        {w:"BÜYÜK LOKMA YE BÜYÜK SÖZ SÖYLEME", m:"ATASÖZÜ: Mütevazılık."}, {w:"GÜLÜ SEVEN DİKENİNE KATLANIR", m:"ATASÖZÜ: Fedakarlık."},
+        {w:"İŞLEYEN DEMİR IŞILDAR", m:"ATASÖZÜ: Hareketlilik."}, {w:"KENDI DÜŞEN AĞLAMAZ", m:"ATASÖZÜ: Kendi hatası."}
+    ];
+
+    function login() {
+        let u = document.getElementById("user").value;
+        let p = document.getElementById("pass").value;
+        if(!u || !p) return alert("Boş bırakma!");
+        if(!users[u]) users[u] = {pass:p, best:0};
+        else if(users[u].pass !== p) return alert("Şifre yanlış!");
+        currentU = u;
+        document.getElementById("auth-box").classList.add("hidden");
+        document.getElementById("game-box").classList.remove("hidden");
+        start();
+    }
+
+    function start() {
+        score = 0; lives = 3;
+        loadNext();
+    }
+
+    function loadNext() {
+        guessed = []; timeLeft = 60;
+        item = dataSet[Math.floor(Math.random()*dataSet.length)];
+        document.getElementById("meaning").innerText = item.m;
+        refresh();
+        keys();
+        timerStart();
+    }
+
+    function timerStart() {
+        clearInterval(timer);
+        timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById("time").innerText = timeLeft;
+            if(timeLeft <= 0) lifeDown();
+        }, 1000);
+    }
+
+    function refresh() {
+        let display = "";
+        item.w.split("").forEach(c => {
+            if(c === " ") display += "&nbsp;&nbsp;";
+            else display += guessed.includes(c) ? c : "_";
+        });
+        document.getElementById("word").innerHTML = display;
+        if(!display.includes("_")) {
+            score += 20;
+            updateUI();
+            setTimeout(loadNext, 800);
+        }
+    }
+
+    function keys() {
+        const d = document.getElementById("letters");
+        d.innerHTML = "";
+        "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ".split("").forEach(l => {
+            let b = document.createElement("button");
+            b.innerText = l; b.className = "btn-l";
+            b.onclick = () => {
+                if(item.w.includes(l)) {
+                    guessed.push(l); b.classList.add("correct"); refresh();
+                } else {
+                    b.classList.add("wrong"); b.disabled = true;
+                    if(document.querySelectorAll(".wrong").length >= 6) lifeDown();
+                }
+            };
+            d.appendChild(b);
+        });
+    }
+
+    function lifeDown() {
+        lives--;
+        updateUI();
+        alert("Cevap: " + item.w);
+        if(lives <= 0) {
+            alert("OYUN BİTTİ! Skor: " + score);
+            location.reload();
+        } else loadNext();
+    }
+
+    function updateUI() {
+        document.getElementById("score").innerText = score;
+        document.getElementById("lives").innerText = lives;
+    }
+</script>
+</body>
+</html>
